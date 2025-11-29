@@ -1,5 +1,5 @@
 # MoviCue (v1.6)
-
+Personal Project to learn ML basics
 # How to Demo
 ### Prerequisites
 ```bash
