@@ -1,5 +1,27 @@
 # MoviCue (v1.6)
 
+# How to Demo
+### Prerequisites
+```bash
+- Python 3.12
+- pip
+```
+### Setting Up
+```bash
+git clone https://github.com/rjd14me/MoviCue.git  
+cd MoviCue
+```
+```bash
+pip install -r requirements.txt
+```
+### Getting Started
+```bash
+python src/api.py
+```
+Then go to [this web address](http://127.0.0.1:8000)
+### Try it Out
+- Type any movie title in the search box,and pick one from the drop-down suggestions.
+- See the list of recommended movies based on similarity scores.  
 ## Features
 - Uses data from the MovieLens set  (`movies.csv`, `links.csv` and `ratings.csv`)
 - Learns movie embeddings from movie metadata.
