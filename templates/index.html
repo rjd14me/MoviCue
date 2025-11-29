@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Movie Recommender</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body data-theme="dark">
+    <div class="shell">
+      <div class="header">
+        <div>
+          <h1>Recommender</h1>
+          <p>Pick a movie.</p>
+        </div>
+        <div class="header-actions">
+          <button class="mode-toggle" type="button" id="mode-toggle" aria-pressed="false" aria-label="Toggle light mode">
+            <span class="mode-dot" aria-hidden="true"></span>
+            <span id="mode-label">Dark mode</span>
+          </button>
+          <div class="badge">rjd14me</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <form id="recommend-form">
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="movie-input">Movie Title</label>
+              <div class="search-box">
+                <div class="search-row">
+                  <input
+                    id="movie-input"
+                    name="movie"
+                    type="search"
+                    placeholder="Search for a movie..."
+                    autocomplete="off"
+                    aria-autocomplete="list"
+                    aria-controls="suggestions"
+                    required
+                  />
+                  <button class="btn ghost random" type="button" id="random-btn">Random</button>
+                </div>
+                <div id="suggestions" class="suggestions" hidden></div>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="limit">Number of recommendations?</label>
+              <div class="controls">
+                <input id="limit" name="limit" type="range" min="3" max="20" value="10" />
+                <span class="pill" id="limit-value">10</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label>&nbsp;</label>
+              <button class="btn" type="submit">Show Recommendations</button>
+            </div>
+            <div class="input-group">
+              <label>&nbsp;</label>
+              <button class="btn ghost" type="button" id="filters-btn">Filters</button>
+            </div>
+          </div>
+        </form>
+        <div id="selected" class="selected"></div>
+      </div>
+
+      <div class="results">
+        <div class="status" id="status"></div>
+        <div id="results-grid" class="grid"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="filters-modal" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Filters</h3>
+          <button class="icon-btn" type="button" id="close-filters" aria-label="Close filters">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="field-row">
+            <label for="min-year">Release year</label>
+            <div class="controls range-pair">
+              <input id="min-year" name="minYear" type="number" placeholder="Min" min="1900" max="2100" />
+              <span class="muted">to</span>
+              <input id="max-year" name="maxYear" type="number" placeholder="Max" min="1900" max="2100" />
+            </div>
+          </div>
+          <div class="field-row">
+            <label for="min-rating">Average rating</label>
+            <div class="controls range-pair">
+              <input id="min-rating" name="minRating" type="number" step="0.1" min="0" max="5" placeholder="Min" />
+              <span class="muted">to</span>
+              <input id="max-rating" name="maxRating" type="number" step="0.1" min="0" max="5" placeholder="Max" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn ghost" type="button" id="clear-filters">Clear</button>
+          <button class="btn" type="button" id="apply-filters">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const movieInput = document.getElementById("movie-input");
+      const suggestionsBox = document.getElementById("suggestions");
+      const selectedBox = document.getElementById("selected");
+      const resultsGrid = document.getElementById("results-grid");
+      const statusLine = document.getElementById("status");
+      const limitInput = document.getElementById("limit");
+      const limitValue = document.getElementById("limit-value");
+      const minYearInput = document.getElementById("min-year");
+      const maxYearInput = document.getElementById("max-year");
+      const minRatingInput = document.getElementById("min-rating");
+      const maxRatingInput = document.getElementById("max-rating");
+      const filtersBtn = document.getElementById("filters-btn");
+      const filtersModal = document.getElementById("filters-modal");
+      const closeFiltersBtn = document.getElementById("close-filters");
+      const applyFiltersBtn = document.getElementById("apply-filters");
+      const clearFiltersBtn = document.getElementById("clear-filters");
+      const randomBtn = document.getElementById("random-btn");
+      const form = document.getElementById("recommend-form");
+      const modeToggle = document.getElementById("mode-toggle");
+      const modeLabel = document.getElementById("mode-label");
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+      let suggestions = [];
+      let selectedMovie = null;
+      let hideTimeout = null;
+
+      const applyTheme = (theme, persist = true) => {
+        const next = theme === "light" ? "light" : "dark";
+        document.body.dataset.theme = next;
+        if (persist) {
+          localStorage.setItem("theme", next);
+        }
+        modeToggle.setAttribute("aria-pressed", next === "light" ? "true" : "false");
+        modeLabel.textContent = next === "light" ? "Light mode" : "Dark mode";
+      };
+
+      const storedTheme = localStorage.getItem("theme");
+      applyTheme(storedTheme || (prefersDark.matches ? "dark" : "light"), false);
+
+      modeToggle.addEventListener("click", () => {
+        const next = document.body.dataset.theme === "light" ? "dark" : "light";
+        applyTheme(next);
+      });
+
+      prefersDark.addEventListener("change", (event) => {
+        if (localStorage.getItem("theme")) return;
+        applyTheme(event.matches ? "dark" : "light", false);
+      });
+
+      const pickRandomMovie = async () => {
+        statusLine.textContent = "Picking a random movie...";
+        try {
+          const res = await fetch("/api/random");
+          const movie = await res.json();
+          if (!movie || !movie.movieId) {
+            throw new Error("Empty random movie response");
+          }
+          chooseMovie(movie);
+        } catch (err) {
+          console.error(err);
+          statusLine.textContent = "Could not pick a random movie.";
+        }
+      };
+
+      randomBtn.addEventListener("click", pickRandomMovie);
+
+      const debounce = (fn, delay = 180) => {
+        let t;
+        return (...args) => {
+          clearTimeout(t);
+          t = setTimeout(() => fn(...args), delay);
+        };
+      };
+
+      const renderSuggestions = (items) => {
+        suggestionsBox.innerHTML = "";
+        if (!items.length) {
+          suggestionsBox.hidden = true;
+          return;
+        }
+
+        items.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "suggestion";
+          div.tabIndex = 0;
+          div.innerHTML = `<span>${item.title}</span><span class="muted">${item.genres}</span>`;
+          div.addEventListener("click", () => chooseMovie(item));
+          div.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              chooseMovie(item);
+            }
+          });
+          suggestionsBox.appendChild(div);
+        });
+        suggestionsBox.hidden = false;
+      };
+
+      const chooseMovie = (movie) => {
+        selectedMovie = movie;
+        movieInput.value = movie.title;
+        selectedBox.textContent = `Selected: ${movie.title} | ${movie.genres}`;
+        suggestionsBox.hidden = true;
+        form.requestSubmit();
+      };
+
+      const fetchSuggestions = debounce(async (query) => {
+        if (!query || query.length < 2) {
+          renderSuggestions([]);
+          selectedMovie = null;
+          return;
+        }
+        try {
+          const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+          suggestions = await res.json();
+          renderSuggestions(suggestions);
+        } catch (err) {
+          console.error(err);
+        }
+      }, 220);
+
+      movieInput.addEventListener("input", (e) => {
+        const value = e.target.value.trim();
+        fetchSuggestions(value);
+      });
+
+      movieInput.addEventListener("focus", () => {
+        clearTimeout(hideTimeout);
+        if (suggestions.length) {
+          suggestionsBox.hidden = false;
+        }
+      });
+
+      movieInput.addEventListener("blur", () => {
+        hideTimeout = setTimeout(() => (suggestionsBox.hidden = true), 150);
+      });
+
+      limitInput.addEventListener("input", (e) => {
+        limitValue.textContent = e.target.value;
+      });
+
+      const openFilters = () => {
+        filtersModal.hidden = false;
+        requestAnimationFrame(() => filtersModal.classList.add("show"));
+      };
+
+      const closeFilters = () => {
+        filtersModal.classList.remove("show");
+        setTimeout(() => {
+          filtersModal.hidden = true;
+        }, 160);
+      };
+
+      filtersBtn.addEventListener("click", openFilters);
+      closeFiltersBtn.addEventListener("click", closeFilters);
+      filtersModal.addEventListener("click", (e) => {
+        if (e.target === filtersModal) {
+          closeFilters();
+        }
+      });
+      applyFiltersBtn.addEventListener("click", () => {
+        closeFilters();
+        form.requestSubmit();
+      });
+      clearFiltersBtn.addEventListener("click", () => {
+        minYearInput.value = "";
+        maxYearInput.value = "";
+        minRatingInput.value = "";
+        maxRatingInput.value = "";
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!selectedMovie) {
+          statusLine.textContent = "Please pick a movie from the dropdown.";
+          renderSuggestions([]);
+          return;
+        }
+        statusLine.textContent = "Loading recommendations...";
+        resultsGrid.innerHTML = "";
+
+        try {
+          const params = new URLSearchParams({
+            movie_id: selectedMovie.movieId,
+            limit: limitInput.value,
+          });
+          const minYear = parseInt(minYearInput.value, 10);
+          const maxYear = parseInt(maxYearInput.value, 10);
+          if (!Number.isNaN(minYear)) {
+            params.append("min_year", minYear);
+          }
+          if (!Number.isNaN(maxYear)) {
+            params.append("max_year", maxYear);
+          }
+          const minRating = parseFloat(minRatingInput.value);
+          const maxRating = parseFloat(maxRatingInput.value);
+          if (!Number.isNaN(minRating)) {
+            params.append("min_rating", minRating.toFixed(1));
+          }
+          if (!Number.isNaN(maxRating)) {
+            params.append("max_rating", maxRating.toFixed(1));
+          }
+          const res = await fetch(`/api/recommend?${params.toString()}`);
+          const payload = await res.json();
+          renderResults(payload.recommendations || []);
+          statusLine.textContent = `Showing ${payload.recommendations.length} matches for ${selectedMovie.title}.`;
+        } catch (err) {
+          console.error(err);
+          statusLine.textContent = "Failed to fetch recommendations.";
+        }
+      });
+
+      const renderResults = (items) => {
+        resultsGrid.innerHTML = "";
+        if (!items.length) {
+          statusLine.textContent = "No matches found.";
+          return;
+        }
+        items.forEach((movie) => {
+          const card = document.createElement("div");
+          card.className = "card";
+          const genresText = (movie.genres || "").replace(/\|/g, " | ");
+          const titleMarkup = movie.imdbUrl
+            ? `<a href="${movie.imdbUrl}" target="_blank" rel="noopener noreferrer">${movie.title}</a>`
+            : movie.title;
+          card.innerHTML = `
+            <h3>${titleMarkup}</h3>
+            <div class="genres">${genresText}</div>
+            <div class="score">
+              Average rating: ${
+                typeof movie.avgRating === "number" ? movie.avgRating.toFixed(2) : "N/A"
+              }
+            </div>
+          `;
+          resultsGrid.appendChild(card);
+        });
+      };
+    </script>
+  </body>
+</html>
