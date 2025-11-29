@@ -1,4 +1,4 @@
-# MovieCue (v1.6)
+# MoviCue (v1.6)
 
 ## Features
 - Uses data from the MovieLens set  (`movies.csv`, `links.csv` and `ratings.csv`)
