@@ -1,4 +1,4 @@
-# MoviCue (v1.7)
+# MoviCue (v1.8)
 A MovieLens-driven movie recommender that learns genre-aware embeddings and serves similarity-based recommendations via FastAPI.
 
 # How to Demo

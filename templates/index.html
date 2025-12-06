@@ -199,12 +199,14 @@
         suggestionsBox.hidden = false;
       };
 
-      const chooseMovie = (movie) => {
+      const chooseMovie = (movie, autoSubmit = true) => {
         selectedMovie = movie;
         movieInput.value = movie.title;
         selectedBox.textContent = `Selected: ${movie.title} | ${movie.genres}`;
         suggestionsBox.hidden = true;
-        form.requestSubmit();
+        if (autoSubmit) {
+          form.requestSubmit();
+        }
       };
 
       const fetchSuggestions = debounce(async (query) => {
@@ -275,9 +277,30 @@
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         if (!selectedMovie) {
-          statusLine.textContent = "Please pick a movie from the dropdown.";
-          renderSuggestions([]);
-          return;
+          const typed = movieInput.value.trim();
+          if (!typed) {
+            statusLine.textContent = "Please pick a movie from the dropdown.";
+            renderSuggestions([]);
+            return;
+          }
+          const norm = typed.toLowerCase();
+          let match = suggestions.find((item) => item.title.toLowerCase() === norm);
+          if (!match && norm.length >= 2) {
+            try {
+              const res = await fetch(`/api/search?q=${encodeURIComponent(typed)}`);
+              const remote = await res.json();
+              suggestions = remote;
+              match = remote.find((item) => item.title.toLowerCase() === norm) || remote[0];
+            } catch (err) {
+              console.error(err);
+            }
+          }
+          if (match) {
+            chooseMovie(match, false);
+          } else {
+            statusLine.textContent = "No matching movie found. Try selecting from suggestions.";
+            return;
+          }
         }
         statusLine.textContent = "Loading recommendations...";
         resultsGrid.innerHTML = "";
