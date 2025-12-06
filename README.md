@@ -6,6 +6,7 @@ A MovieLens-driven movie recommender that learns genre-aware embeddings and serv
 ```bash
 - Python 3.12
 - pip
+- git
 ```
 ### Setting Up
 ```bash
