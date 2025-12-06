@@ -326,14 +326,35 @@
           const titleMarkup = movie.imdbUrl
             ? `<a href="${movie.imdbUrl}" target="_blank" rel="noopener noreferrer">${movie.title}</a>`
             : movie.title;
+          const sharedGenres = Array.isArray(movie.sharedGenres) ? movie.sharedGenres.slice(0, 3) : [];
+          const badges = [];
+          if (sharedGenres.length) {
+            badges.push(`<span class="pill soft">${sharedGenres.join(" | ")}</span>`);
+          }
+          if (movie.franchiseMatch) {
+            badges.push(`<span class="pill success">Franchise match</span>`);
+          }
+          if (movie.titleOverlap) {
+            badges.push(
+              `<span class="pill ghost">${movie.titleOverlap} title match${
+                movie.titleOverlap > 1 ? "es" : ""
+              }</span>`
+            );
+          }
+          if (movie.releaseYear) {
+            badges.push(`<span class="pill ghost">Year ${movie.releaseYear}</span>`);
+          }
+          const ratingText = typeof movie.avgRating === "number" ? movie.avgRating.toFixed(2) : "N/A";
+          const reasonText = movie.reason || "Strong genre similarity to your pick.";
           card.innerHTML = `
-            <h3>${titleMarkup}</h3>
-            <div class="genres">${genresText}</div>
-            <div class="score">
-              Average rating: ${
-                typeof movie.avgRating === "number" ? movie.avgRating.toFixed(2) : "N/A"
-              }
+            <div class="card-head">
+              <h3>${titleMarkup}</h3>
+              ${movie.releaseYear ? `<span class="muted">${movie.releaseYear}</span>` : ""}
             </div>
+            <div class="genres">${genresText}</div>
+            ${badges.length ? `<div class="badge-row">${badges.join("")}</div>` : ""}
+            <div class="score">Average rating: ${ratingText}</div>
+            <div class="reason"><span class="muted">Why</span> ${reasonText}</div>
           `;
           resultsGrid.appendChild(card);
         });

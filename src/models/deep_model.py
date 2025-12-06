@@ -138,6 +138,12 @@ def recommend_by_genre(
 
     target_idx = movie_id_to_idx[target_movie_id]
     target_vec = genre_embeddings[target_idx]
+    target_row = movies_df.iloc[target_idx]
+    target_genres = _split_genres(getattr(target_row, "genres", ""))
+    target_tokens = title_tokens[target_idx] if title_tokens and target_idx < len(title_tokens) else set()
+    target_franchise = franchise_keys[target_idx] if franchise_keys and target_idx < len(franchise_keys) else ""
+    target_year = years[target_idx] if years and target_idx < len(years) else None
+    target_avg_rating = movie_id_to_avg_rating.get(int(target_row.movieId)) if movie_id_to_avg_rating else None
     genre_sims = np.maximum(genre_embeddings @ target_vec, 0.0)
     genre_sims[target_idx] = -np.inf  # avoid recommending the same movie
 
@@ -225,9 +231,22 @@ def recommend_by_genre(
             imdb_id = movie_id_to_imdb.get(int(row.movieId))
             if imdb_id:
                 imdb_url = f"https://www.imdb.com/title/tt{imdb_id}/"
-        avg_rating = None
-        if movie_id_to_avg_rating:
-            avg_rating = movie_id_to_avg_rating.get(int(row.movieId))
+        avg_rating = movie_id_to_avg_rating.get(int(row.movieId)) if movie_id_to_avg_rating else None
+        row_genres = _split_genres(getattr(row, "genres", ""))
+        shared_genres = sorted(set(target_genres) & set(row_genres))
+        row_tokens = title_tokens[idx] if title_tokens and idx < len(title_tokens) else set()
+        title_overlap = len(target_tokens & row_tokens) if target_tokens else 0
+        row_year = years[idx] if years and idx < len(years) else None
+        franchise_match = bool(target_franchise and franchise_keys and idx < len(franchise_keys) and franchise_keys[idx] == target_franchise)
+        reason_text = _build_reason(
+            shared_genres=shared_genres,
+            has_franchise_match=franchise_match,
+            title_overlap=title_overlap,
+            target_year=target_year,
+            rec_year=row_year,
+            target_rating=target_avg_rating,
+            rec_rating=avg_rating,
+        )
         recommendations.append(
             {
                 "movieId": int(row.movieId),
@@ -237,6 +256,11 @@ def recommend_by_genre(
                 "genres": row.genres,
                 "avgRating": float(avg_rating) if avg_rating is not None else None,
                 "score": float(combined_sims[idx]),
+                "sharedGenres": shared_genres,
+                "releaseYear": int(row_year) if row_year is not None else None,
+                "franchiseMatch": bool(franchise_match),
+                "titleOverlap": int(title_overlap),
+                "reason": reason_text,
             }
         )
 
@@ -266,3 +290,51 @@ def _normalize_rating(rating, rating_range):
     if r_max <= r_min:
         return 0.0
     return (rating - r_min) / (r_max - r_min)
+
+
+def _split_genres(genres_cell):
+    if not isinstance(genres_cell, str):
+        return []
+    return [genre for genre in genres_cell.split("|") if genre and genre != "(no genres listed)"]
+
+
+def _build_reason(
+    shared_genres,
+    has_franchise_match,
+    title_overlap,
+    target_year,
+    rec_year,
+    target_rating,
+    rec_rating,
+):
+    parts = []
+    if shared_genres:
+        genre_text = ", ".join(shared_genres[:3])
+        if len(shared_genres) > 3:
+            genre_text += f" +{len(shared_genres) - 3} more"
+        parts.append(f"Shares genres: {genre_text}")
+
+    if has_franchise_match:
+        parts.append("Same franchise/series vibes")
+
+    if title_overlap:
+        parts.append(f"{title_overlap} overlapping title keyword{'s' if title_overlap != 1 else ''}")
+
+    if target_year is not None and rec_year is not None:
+        gap = abs(target_year - rec_year)
+        if gap <= 3:
+            parts.append(f"Close in release year ({target_year} vs {rec_year})")
+        elif gap <= 10:
+            parts.append(f"Similar era ({target_year} vs {rec_year})")
+
+    if rec_rating is not None:
+        if target_rating is not None:
+            direction = "higher" if rec_rating > target_rating else "similar"
+            parts.append(f"{direction.capitalize()} avg rating ({rec_rating:.1f}/5)")
+        else:
+            parts.append(f"Viewer avg rating {rec_rating:.1f}/5")
+
+    if not parts:
+        return "Strong genre similarity to the selected movie."
+
+    return "; ".join(parts)

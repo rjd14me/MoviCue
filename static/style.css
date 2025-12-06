@@ -346,6 +346,34 @@ input[type="range"] {
   font-size: 13px;
 }
 
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.reason {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.reason .muted {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  margin-right: 6px;
+}
+
 .pill {
   display: inline-block;
   padding: 4px 8px;
@@ -354,6 +382,21 @@ input[type="range"] {
   border-radius: 999px;
   color: var(--text);
   font-size: 12px;
+}
+
+.pill.soft {
+  background: rgba(155, 92, 255, 0.14);
+  border-color: rgba(155, 92, 255, 0.4);
+}
+
+.pill.ghost {
+  background: transparent;
+}
+
+.pill.success {
+  background: rgba(92, 249, 200, 0.12);
+  border-color: rgba(92, 249, 200, 0.45);
+  color: var(--success);
 }
 
 .status {
