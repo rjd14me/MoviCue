@@ -35,14 +35,12 @@ Then go to [this web address](http://127.0.0.1:8000)
   - /api/random random movie picker
   - /api/recommend similarity recommendations with filters and explanation payload
   - / Jinja2-rendered UI with dark/light theme toggle
-- Frontend: live search, randomizer, filters modal, result badges, and “why” rationale per recommendation.
-
+- Frontend: live search, randomiser, filters modal, result badges, and “why” rationale per recommendation.
 ## Key skills demonstrated:
 - Data engineering: MovieLens ingestion, genre encoding, user/rating filtering
 - ML: PyTorch embedding model, cosine similarity, metric reporting
 - API: FastAPI with typed query params, health endpoint, static assets
 - Frontend: Vanilla JS UX (debounce, modals, badges), responsive CSS, theming
-
 ```bash
 Modules: pandas, numpy, fastapi, uvicorn[standard], jinja2, torch, scikit-learn
 ```
